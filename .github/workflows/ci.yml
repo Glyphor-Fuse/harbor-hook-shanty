@@ -34,7 +34,7 @@ jobs:
         run: npm ci
 
       - name: Type check
-        run: npm run typecheck
+        run: npx tsc --noEmit
 
       - name: Lint
         run: npm run lint
@@ -90,7 +90,7 @@ jobs:
               throw new Error('No merge methods enabled on repository settings');
             }
 
-            console.log(`Allowed merge methods: ${allowedMethods.join(', ')}`);
+            console.log('Allowed merge methods: ' + allowedMethods.join(', '));
 
             let merged = false;
             let lastError = '';
@@ -104,7 +104,7 @@ jobs:
               });
 
               if (pr.data.merged || pr.data.state === 'closed') {
-                console.log(`PR #${prNumber} already merged/closed`);
+                console.log('PR #' + prNumber + ' already merged/closed');
                 merged = true;
                 break;
               }
@@ -117,23 +117,23 @@ jobs:
                     pull_number: prNumber,
                     merge_method: method,
                   });
-                  console.log(`PR #${prNumber} merged using ${method} (attempt ${attempt})`);
+                  console.log('PR #' + prNumber + ' merged using ' + method + ' (attempt ' + attempt + ')');
                   merged = true;
                   break;
                 } catch (err) {
                   const msg = err?.message || String(err);
-                  lastError = `[${method}] ${msg}`;
-                  console.log(`Attempt ${attempt} merge via ${method} failed: ${msg}`);
+                  lastError = '[' + method + '] ' + msg;
+                  console.log('Attempt ' + attempt + ' merge via ' + method + ' failed: ' + msg);
                 }
               }
 
               if (!merged && attempt < 15) {
-                await sleep(20_000);
+                await sleep(20000);
               }
             }
 
             if (!merged) {
-              throw new Error(`Auto-merge failed after retries: ${lastError || 'unknown error'}`);
+              throw new Error('Auto-merge failed after retries: ' + (lastError || 'unknown error'));
             }
 
             // Delete branch after successful merge (non-fatal if it fails)
@@ -141,9 +141,9 @@ jobs:
               await github.rest.git.deleteRef({
                 owner,
                 repo,
-                ref: `heads/${headRef}`,
+                ref: 'heads/' + headRef,
               });
-              console.log(`Branch ${headRef} deleted`);
+              console.log('Branch ' + headRef + ' deleted');
             } catch (delErr) {
               console.log('Branch deletion failed (non-fatal):', delErr.message);
             }
@@ -163,7 +163,6 @@ jobs:
             const prNumber = context.payload.pull_request.number;
             const headSha = context.payload.pull_request.head.sha;
 
-            // Try to request Copilot reviewer again (best effort).
             try {
               await github.rest.pulls.requestReviewers({
                 owner,
@@ -173,20 +172,19 @@ jobs:
               });
               core.info('Re-requested Copilot reviewer');
             } catch (e) {
-              core.info(`Could not re-request Copilot reviewer: ${e.message}`);
+              core.info('Could not re-request Copilot reviewer: ' + e.message);
             }
 
-            const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
-            const body = `@copilot CI build failed on this PR. Please retry your review with focus on the failing checks and propose concrete fixes.
-            
-            - Failed workflow run: ${runUrl}
-            - Commit: \`${headSha}\`
-            - Triggered by: \`retag-copilot-on-build-failure\``;
+            const runUrl = 'https://github.com/' + owner + '/' + repo + '/actions/runs/' + context.runId;
+            const body = '@copilot CI build failed on this PR. Please retry your review with focus on the failing checks and propose concrete fixes.\n\n' +
+              '- Failed workflow run: ' + runUrl + '\n' +
+              '- Commit: ' + headSha + '\n' +
+              '- Triggered by: retag-copilot-on-build-failure';
 
             await github.rest.issues.createComment({
               owner,
               repo,
               issue_number: prNumber,
-              body
+              body,
             });
             core.info('Posted @copilot retag comment');
